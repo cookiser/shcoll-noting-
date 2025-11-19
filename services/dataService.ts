@@ -38,31 +38,22 @@ export const DataService = {
       const { count, error } = await supabase.from('users').select('*', { count: 'exact', head: true });
       
       if (error) {
-        console.error("Erreur DB:", error);
-        // 42P01 est le code Postgres pour "undefined_table"
-        // "relation" dans le message indique aussi souvent que la table manque
-        if (error.code === '42P01' || error.message.includes('relation') || error.message.includes('does not exist')) {
-             return 'MISSING_TABLES';
-        }
-        // Si erreur de permission, on considère aussi qu'il faut relancer le script (qui inclut les droits)
-        if (error.code === '42501' || error.message.includes('permission denied')) {
-            return 'MISSING_TABLES';
-        }
-        // Autres erreurs (réseau, etc.)
-        return 'OK'; // On laisse l'app essayer de continuer ou afficher une erreur plus tard
+        console.error("Erreur DB (Init):", error);
+        // Si on a la moindre erreur (table manquante, droits refusés, auth failed), 
+        // on renvoie MISSING_TABLES pour afficher l'assistant qui contient le script SQL de réparation.
+        // Cela couvre les codes 42P01 (undefined_table), 42501 (permission_denied), et autres.
+        return 'MISSING_TABLES';
       }
       
-      // Si table vide mais existe, on pourrait initialiser via l'API, mais on préfère le SQL pour la robustesse
+      // Si table vide mais existe, on considère que l'installation n'est pas finie
       if (count === 0) {
-          // Optionnel : insérer un admin par défaut via API si on veut, 
-          // mais le SetupWizard est plus propre.
-          return 'MISSING_TABLES'; // On force le wizard pour avoir des données propres
+          return 'MISSING_TABLES'; 
       }
 
       return 'OK';
     } catch (error) {
       console.error("Erreur critique lors de l'init:", error);
-      return 'OK';
+      return 'MISSING_TABLES'; // En cas de crash total, proposer le script
     }
   },
 
