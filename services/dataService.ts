@@ -34,21 +34,33 @@ export const DataService = {
   // INITIALISATION (Seed Data if empty)
   init: async () => {
     try {
-      const { count } = await supabase.from('users').select('*', { count: 'exact', head: true });
+      // On vérifie si des utilisateurs existent. 
+      // Si la table n'existe pas, cette requête va échouer (catch), ce qui est normal si le SQL n'a pas été lancé.
+      const { count, error } = await supabase.from('users').select('*', { count: 'exact', head: true });
+      
+      if (error) {
+        console.error("Erreur d'accès à la base de données (Tables manquantes ?):", error.message);
+        return;
+      }
       
       if (count === 0) {
-        console.log("Base de données vide, initialisation...");
+        console.log("Base de données vide, tentative d'initialisation via l'App...");
         
-        // 1. Création des Classes
+        // 1. Création des Classes (IDs courts comme c6a pour matcher le SQL)
         const classesPayload = [];
-        const grades = ['6ème', '5ème', '4ème', '3ème'];
+        const grades = [
+          { label: '6ème', code: '6' },
+          { label: '5ème', code: '5' },
+          { label: '4ème', code: '4' },
+          { label: '3ème', code: '3' }
+        ];
         const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
 
         grades.forEach(grade => {
           letters.forEach(letter => {
             classesPayload.push({
-                id: `c_${grade}_${letter}`.replace(/\s/g, ''),
-                name: `${grade} ${letter}`
+                id: `c${grade.code}${letter.toLowerCase()}`, // ex: c6a
+                name: `${grade.label} ${letter}`
             });
           });
         });
@@ -63,20 +75,20 @@ export const DataService = {
           },
           // Professeurs
           { 
-            id: 'u_prof1', full_name: 'M. Dupont', role: UserRole.PROFESSEUR, active: true, 
-            assigned_class_ids: [`c_6ème_A`.replace(/\s/g, ''), `c_6ème_B`.replace(/\s/g, '')]
+            id: 'prof1', full_name: 'M. Dupont', role: UserRole.PROFESSEUR, active: true, 
+            assigned_class_ids: ['c6a', 'c6b']
           },
           { 
-            id: 'u_prof2', full_name: 'Mme Durand', role: UserRole.PROFESSEUR, active: true, 
-            assigned_class_ids: [`c_6ème_A`.replace(/\s/g, '')]
+            id: 'prof2', full_name: 'Mme Durand', role: UserRole.PROFESSEUR, active: true, 
+            assigned_class_ids: ['c6a']
           },
           // Staff Global
-          { id: 'u_surv1', full_name: 'Mme Martin', role: UserRole.SURVEILLANT, active: true },
-          { id: 'u_dir1', full_name: 'M. Le Directeur', role: UserRole.DIRECTION, active: true },
+          { id: 'surv1', full_name: 'Mme Martin', role: UserRole.SURVEILLANT, active: true },
+          { id: 'dir1', full_name: 'M. Le Directeur', role: UserRole.DIRECTION, active: true },
           // Élève
           { 
-            id: 'u_eleve1', full_name: 'Lucas', username: 'eleve1', password: '123', role: UserRole.ELEVE, active: true, 
-            class_id: `c_6ème_A`.replace(/\s/g, '') 
+            id: 'eleve1', full_name: 'Lucas', username: 'eleve1', password: '123', role: UserRole.ELEVE, active: true, 
+            class_id: 'c6a' 
           },
         ];
 
@@ -84,7 +96,7 @@ export const DataService = {
         console.log("Initialisation terminée.");
       }
     } catch (error) {
-      console.error("Erreur init:", error);
+      console.error("Erreur critique lors de l'init:", error);
     }
   },
 
