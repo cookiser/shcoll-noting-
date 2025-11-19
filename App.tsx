@@ -7,22 +7,29 @@ import AddPoints from './pages/AddPoints';
 import Rankings from './pages/Rankings';
 import UserManagement from './pages/UserManagement';
 import Layout from './components/Layout';
+import SetupWizard from './components/SetupWizard';
 import { DataService } from './services/dataService';
 import { User, UserRole } from './types';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [needsSetup, setNeedsSetup] = useState(false);
 
   useEffect(() => {
     const initApp = async () => {
-      // Init DB if empty
-      await DataService.init();
+      // Init DB
+      const status = await DataService.init();
+      
+      if (status === 'MISSING_TABLES') {
+          setNeedsSetup(true);
+          setIsLoading(false);
+          return;
+      }
       
       // Check session
       const storedUser = localStorage.getItem('eval_ecole_session');
       if (storedUser) {
-        // Verify if user still exists in DB (optional but safer)
         const userObj = JSON.parse(storedUser);
         try {
             const dbUser = await DataService.getUserById(userObj.id);
@@ -56,6 +63,10 @@ const App: React.FC = () => {
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
     </div>
   );
+
+  if (needsSetup) {
+      return <SetupWizard />;
+  }
 
   return (
     <HashRouter>

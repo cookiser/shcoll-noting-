@@ -31,72 +31,38 @@ const mapEvent = (data: any): PointEvent => ({
 });
 
 export const DataService = {
-  // INITIALISATION (Seed Data if empty)
-  init: async () => {
+  // INITIALISATION (Check connectivity)
+  init: async (): Promise<'OK' | 'MISSING_TABLES'> => {
     try {
-      // On vérifie si des utilisateurs existent. 
-      // Si la table n'existe pas, cette requête va échouer (catch), ce qui est normal si le SQL n'a pas été lancé.
+      // Tentative de lecture simple pour voir si la table existe
       const { count, error } = await supabase.from('users').select('*', { count: 'exact', head: true });
       
       if (error) {
-        console.error("Erreur d'accès à la base de données (Tables manquantes ?):", error.message);
-        return;
+        console.error("Erreur DB:", error);
+        // 42P01 est le code Postgres pour "undefined_table"
+        // "relation" dans le message indique aussi souvent que la table manque
+        if (error.code === '42P01' || error.message.includes('relation') || error.message.includes('does not exist')) {
+             return 'MISSING_TABLES';
+        }
+        // Si erreur de permission, on considère aussi qu'il faut relancer le script (qui inclut les droits)
+        if (error.code === '42501' || error.message.includes('permission denied')) {
+            return 'MISSING_TABLES';
+        }
+        // Autres erreurs (réseau, etc.)
+        return 'OK'; // On laisse l'app essayer de continuer ou afficher une erreur plus tard
       }
       
+      // Si table vide mais existe, on pourrait initialiser via l'API, mais on préfère le SQL pour la robustesse
       if (count === 0) {
-        console.log("Base de données vide, tentative d'initialisation via l'App...");
-        
-        // 1. Création des Classes (IDs courts comme c6a pour matcher le SQL)
-        const classesPayload = [];
-        const grades = [
-          { label: '6ème', code: '6' },
-          { label: '5ème', code: '5' },
-          { label: '4ème', code: '4' },
-          { label: '3ème', code: '3' }
-        ];
-        const letters = ['A', 'B', 'C', 'D', 'E', 'F'];
-
-        grades.forEach(grade => {
-          letters.forEach(letter => {
-            classesPayload.push({
-                id: `c${grade.code}${letter.toLowerCase()}`, // ex: c6a
-                name: `${grade.label} ${letter}`
-            });
-          });
-        });
-        
-        await supabase.from('classes').insert(classesPayload);
-
-        // 2. Création des Utilisateurs
-        const usersPayload = [
-          // Admin
-          { 
-            id: 'u1', full_name: 'Administrateur', username: 'Paul', password: 'Paul2025.', role: UserRole.ADMIN, active: true 
-          },
-          // Professeurs
-          { 
-            id: 'prof1', full_name: 'M. Dupont', role: UserRole.PROFESSEUR, active: true, 
-            assigned_class_ids: ['c6a', 'c6b']
-          },
-          { 
-            id: 'prof2', full_name: 'Mme Durand', role: UserRole.PROFESSEUR, active: true, 
-            assigned_class_ids: ['c6a']
-          },
-          // Staff Global
-          { id: 'surv1', full_name: 'Mme Martin', role: UserRole.SURVEILLANT, active: true },
-          { id: 'dir1', full_name: 'M. Le Directeur', role: UserRole.DIRECTION, active: true },
-          // Élève
-          { 
-            id: 'eleve1', full_name: 'Lucas', username: 'eleve1', password: '123', role: UserRole.ELEVE, active: true, 
-            class_id: 'c6a' 
-          },
-        ];
-
-        await supabase.from('users').insert(usersPayload);
-        console.log("Initialisation terminée.");
+          // Optionnel : insérer un admin par défaut via API si on veut, 
+          // mais le SetupWizard est plus propre.
+          return 'MISSING_TABLES'; // On force le wizard pour avoir des données propres
       }
+
+      return 'OK';
     } catch (error) {
       console.error("Erreur critique lors de l'init:", error);
+      return 'OK';
     }
   },
 
