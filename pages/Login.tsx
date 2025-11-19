@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { School, Lock, User as UserIcon, AlertCircle } from 'lucide-react';
+import { School, Lock, User as UserIcon, AlertCircle, Loader } from 'lucide-react';
 import { DataService } from '../services/dataService';
 import { User } from '../types';
 
@@ -11,21 +11,29 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
-    const users = DataService.getUsers();
-    // Only Students and Admins can log in
-    const user = users.find(
-      (u) => u.username === username && u.password === password && u.active
-    );
+    try {
+        const users = await DataService.getUsers();
+        // Only Students and Admins can log in
+        const user = users.find(
+          (u) => u.username === username && u.password === password && u.active
+        );
 
-    if (user) {
-      onLogin(user);
-    } else {
-      setError('Identifiant ou mot de passe incorrect.');
+        if (user) {
+          onLogin(user);
+        } else {
+          setError('Identifiant ou mot de passe incorrect.');
+        }
+    } catch (err) {
+        setError('Erreur de connexion au serveur.');
+    } finally {
+        setLoading(false);
     }
   };
 
@@ -90,9 +98,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
           <div>
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200"
+              disabled={loading}
+              className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors duration-200 disabled:bg-indigo-400"
             >
-              Se connecter
+              {loading ? <Loader className="animate-spin h-5 w-5" /> : 'Se connecter'}
             </button>
           </div>
         </form>

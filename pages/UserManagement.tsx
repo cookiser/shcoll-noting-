@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User, UserRole, ClassGroup } from '../types';
 import { DataService } from '../services/dataService';
-import { Plus, Edit2, Trash2, X, BookOpen, GraduationCap, Briefcase } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, BookOpen, GraduationCap, Briefcase, Loader } from 'lucide-react';
 
 const UserManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'eleves' | 'personnel' | 'classes'>('eleves');
-  const [users, setUsers] = useState<User[]>(DataService.getUsers());
-  const [classes, setClasses] = useState<ClassGroup[]>(DataService.getClasses());
+  const [users, setUsers] = useState<User[]>([]);
+  const [classes, setClasses] = useState<ClassGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   
   // Modal states
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
@@ -26,10 +28,17 @@ const UserManagement: React.FC = () => {
       active: true
   });
 
-  const refreshData = () => {
-      setUsers(DataService.getUsers());
-      setClasses(DataService.getClasses());
+  const refreshData = async () => {
+      setLoading(true);
+      const [u, c] = await Promise.all([DataService.getUsers(), DataService.getClasses()]);
+      setUsers(u);
+      setClasses(c);
+      setLoading(false);
   };
+
+  useEffect(() => {
+      refreshData();
+  }, []);
 
   // --- User Logic ---
 
@@ -60,31 +69,34 @@ const UserManagement: React.FC = () => {
       setIsUserModalOpen(true);
   };
 
-  const handleSaveUser = (e: React.FormEvent) => {
+  const handleSaveUser = async (e: React.FormEvent) => {
       e.preventDefault();
+      setActionLoading(true);
       
-      // Logic specific for Staff: No username/password needed really
       const isStaff = [UserRole.PROFESSEUR, UserRole.SURVEILLANT, UserRole.DIRECTION, UserRole.COMPTABILITE].includes(formData.role);
       
       const newUser: User = {
-          id: editingUser ? editingUser.id : Date.now().toString(),
+          id: editingUser ? editingUser.id : crypto.randomUUID(), // Use randomUUID for new strings
           fullName: formData.fullName,
-          username: isStaff ? '' : formData.username, // Clear username for staff
-          password: isStaff ? '' : formData.password, // Clear password for staff
+          username: isStaff ? '' : formData.username, 
+          password: isStaff ? '' : formData.password, 
           role: formData.role,
           active: formData.active,
           classId: formData.role === UserRole.ELEVE ? formData.classId : undefined,
           assignedClassIds: formData.role === UserRole.PROFESSEUR ? formData.assignedClassIds : undefined
       };
 
-      DataService.saveUser(newUser);
+      await DataService.saveUser(newUser);
       setIsUserModalOpen(false);
+      setActionLoading(false);
       refreshData();
   };
 
-  const handleDeleteUser = (id: string) => {
+  const handleDeleteUser = async (id: string) => {
       if (window.confirm('Êtes-vous sûr de vouloir supprimer ?')) {
-          DataService.deleteUser(id);
+          setActionLoading(true);
+          await DataService.deleteUser(id);
+          setActionLoading(false);
           refreshData();
       }
   };
@@ -102,18 +114,22 @@ const UserManagement: React.FC = () => {
 
   // --- Class Logic ---
 
-  const handleAddClass = (e: React.FormEvent) => {
+  const handleAddClass = async (e: React.FormEvent) => {
       e.preventDefault();
       if (newClassName.trim()) {
-          DataService.addClass(newClassName.trim());
+          setActionLoading(true);
+          await DataService.addClass(newClassName.trim());
           setNewClassName('');
+          setActionLoading(false);
           refreshData();
       }
   };
 
-  const handleDeleteClass = (id: string) => {
+  const handleDeleteClass = async (id: string) => {
       if (window.confirm('Supprimer cette classe ? Les élèves liés perdront leur affiliation.')) {
-          DataService.deleteClass(id);
+          setActionLoading(true);
+          await DataService.deleteClass(id);
+          setActionLoading(false);
           refreshData();
       }
   };
@@ -122,13 +138,15 @@ const UserManagement: React.FC = () => {
   const studentUsers = users.filter(u => u.role === UserRole.ELEVE);
   const staffUsers = users.filter(u => [UserRole.PROFESSEUR, UserRole.SURVEILLANT, UserRole.DIRECTION, UserRole.COMPTABILITE].includes(u.role));
 
-  // Logic to decide form appearance
   const isEleveForm = formData.role === UserRole.ELEVE;
+
+  if (loading && !isUserModalOpen) return <div className="p-8 text-center"><Loader className="animate-spin w-8 h-8 mx-auto text-indigo-600" /></div>;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">Administration</h1>
+          {actionLoading && <Loader className="animate-spin text-indigo-600" />}
       </div>
 
       {/* Tabs */}
@@ -307,9 +325,8 @@ const UserManagement: React.FC = () => {
                                 className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
                               />
                           </div>
-                          <button type="submit" className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none">
-                              <Plus className="w-4 h-4 mr-2" />
-                              Ajouter
+                          <button type="submit" disabled={actionLoading} className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none disabled:bg-indigo-400">
+                              {actionLoading ? <Loader className="animate-spin h-4 w-4" /> : <><Plus className="w-4 h-4 mr-2" /> Ajouter</>}
                           </button>
                       </form>
                   </div>
@@ -438,7 +455,9 @@ const UserManagement: React.FC = () => {
 
                       <div className="pt-4 flex justify-end">
                           <button type="button" onClick={() => setIsUserModalOpen(false)} className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 mr-3">Annuler</button>
-                          <button type="submit" className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">Enregistrer</button>
+                          <button type="submit" disabled={actionLoading} className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-indigo-400">
+                            {actionLoading ? <Loader className="animate-spin h-4 w-4" /> : 'Enregistrer'}
+                          </button>
                       </div>
                   </form>
               </div>

@@ -1,7 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { User, UserRole, PointEvent, ActionType, TargetRole } from '../types';
 import { DataService } from '../services/dataService';
-import { Search, Send, CheckCircle } from 'lucide-react';
+import { Search, Send, CheckCircle, Loader } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { CUSTOM_ACTION_ID } from '../constants';
 
@@ -11,7 +11,10 @@ interface AddPointsProps {
 
 const AddPoints: React.FC<AddPointsProps> = ({ currentUser }) => {
   const navigate = useNavigate();
-  const users = DataService.getUsers();
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  
   const actions = DataService.getActions();
 
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
@@ -20,6 +23,15 @@ const AddPoints: React.FC<AddPointsProps> = ({ currentUser }) => {
   const [customActionType, setCustomActionType] = useState<ActionType>(ActionType.POSITIVE);
   const [searchTerm, setSearchTerm] = useState('');
   const [success, setSuccess] = useState(false);
+
+  useEffect(() => {
+      const load = async () => {
+          const u = await DataService.getUsers();
+          setUsers(u);
+          setLoading(false);
+      };
+      load();
+  }, []);
 
   // Filter Targets based on rules
   const targetUsers = useMemo(() => {
@@ -64,9 +76,10 @@ const AddPoints: React.FC<AddPointsProps> = ({ currentUser }) => {
     return actions.filter(a => a.targetRole.includes(targetRoleEnum));
   }, [selectedTargetUser, actions]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedTargetId) return;
+    setSubmitting(true);
     
     let points = 0;
     let actionId = selectedActionId;
@@ -94,7 +107,8 @@ const AddPoints: React.FC<AddPointsProps> = ({ currentUser }) => {
         points: points
     };
 
-    DataService.addEvent(newEvent);
+    await DataService.addEvent(newEvent);
+    setSubmitting(false);
     setSuccess(true);
     setTimeout(() => {
         setSuccess(false);
@@ -105,6 +119,8 @@ const AddPoints: React.FC<AddPointsProps> = ({ currentUser }) => {
         navigate('/');
     }, 1500);
   };
+
+  if (loading) return <div className="p-8 text-center"><Loader className="animate-spin w-8 h-8 mx-auto text-indigo-600" /></div>;
 
   if (success) {
       return (
@@ -241,11 +257,10 @@ const AddPoints: React.FC<AddPointsProps> = ({ currentUser }) => {
         <div className="pt-4">
             <button
                 onClick={handleSubmit}
-                disabled={!selectedTargetId || !selectedActionId || (selectedActionId === CUSTOM_ACTION_ID && !customActionText)}
+                disabled={!selectedTargetId || !selectedActionId || (selectedActionId === CUSTOM_ACTION_ID && !customActionText) || submitting}
                 className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             >
-                <Send className="w-4 h-4 mr-2" />
-                Envoyer l'évaluation
+                {submitting ? <Loader className="animate-spin w-4 h-4" /> : <><Send className="w-4 h-4 mr-2" /> Envoyer l'évaluation</>}
             </button>
         </div>
       </div>

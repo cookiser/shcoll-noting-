@@ -1,16 +1,29 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { DataService } from '../services/dataService';
-import { UserRole, User } from '../types';
-import { Trophy, Medal, Award } from 'lucide-react';
+import { UserRole, User, PointEvent } from '../types';
+import { Trophy, Medal, Award, Loader } from 'lucide-react';
 import { startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 const Rankings: React.FC = () => {
-  const users = DataService.getUsers();
-  const events = DataService.getEvents();
+  const [users, setUsers] = useState<User[]>([]);
+  const [events, setEvents] = useState<PointEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+      const load = async () => {
+          const [u, e] = await Promise.all([DataService.getUsers(), DataService.getEvents()]);
+          setUsers(u);
+          setEvents(e);
+          setLoading(false);
+      };
+      load();
+  }, []);
 
   // Calculate Weekly Stats
   const rankings = useMemo(() => {
+    if (loading) return { all: [], prof: [], surv: [], dir: [] };
+
     const now = new Date();
     const start = startOfWeek(now, { weekStartsOn: 1 });
     const end = endOfWeek(now, { weekStartsOn: 1 });
@@ -49,7 +62,9 @@ const Rankings: React.FC = () => {
         surv: getRankedList(UserRole.SURVEILLANT),
         dir: getRankedList(UserRole.DIRECTION),
     };
-  }, [users, events]);
+  }, [users, events, loading]);
+
+  if (loading) return <div className="p-8 text-center"><Loader className="animate-spin w-8 h-8 mx-auto text-indigo-600" /></div>;
 
   const RankingTable = ({ title, data, icon: Icon, colorClass }: any) => (
     <div className="bg-white shadow-lg rounded-xl overflow-hidden border border-gray-100">

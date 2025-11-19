@@ -1,15 +1,28 @@
-import React from 'react';
-import { User, UserRole } from '../types';
+import React, { useEffect, useState } from 'react';
+import { User, UserRole, ClassGroup } from '../types';
 import { DataService } from '../services/dataService';
-import { Users, UserCircle } from 'lucide-react';
+import { Users, Loader } from 'lucide-react';
 
 interface MyClassProps {
   currentUser: User;
 }
 
 const MyClass: React.FC<MyClassProps> = ({ currentUser }) => {
-  const users = DataService.getUsers();
-  const classes = DataService.getClasses();
+  const [users, setUsers] = useState<User[]>([]);
+  const [classes, setClasses] = useState<ClassGroup[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+        const [u, c] = await Promise.all([DataService.getUsers(), DataService.getClasses()]);
+        setUsers(u);
+        setClasses(c);
+        setLoading(false);
+    };
+    load();
+  }, []);
+
+  if (loading) return <div className="p-8 text-center"><Loader className="animate-spin w-8 h-8 mx-auto text-indigo-600" /></div>;
 
   // Logic for "My Class"
   let myStudents: User[] = [];
@@ -30,7 +43,6 @@ const MyClass: React.FC<MyClassProps> = ({ currentUser }) => {
   // Adults associated (Teachers for Student view)
   let associatedAdults: User[] = [];
   if (currentUser.role === UserRole.ELEVE && currentUser.classId) {
-      // Find teachers assigned to this class (Strict check)
       associatedAdults = users.filter(u => 
         u.role === UserRole.PROFESSEUR && 
         u.assignedClassIds && 

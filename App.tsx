@@ -15,15 +15,30 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Initialize mock data
-    DataService.init();
-    
-    // Check session (very basic simulation)
-    const storedUser = localStorage.getItem('eval_ecole_session');
-    if (storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
-    }
-    setIsLoading(false);
+    const initApp = async () => {
+      // Init DB if empty
+      await DataService.init();
+      
+      // Check session
+      const storedUser = localStorage.getItem('eval_ecole_session');
+      if (storedUser) {
+        // Verify if user still exists in DB (optional but safer)
+        const userObj = JSON.parse(storedUser);
+        try {
+            const dbUser = await DataService.getUserById(userObj.id);
+            if (dbUser && dbUser.active) {
+                setCurrentUser(dbUser);
+            } else {
+                localStorage.removeItem('eval_ecole_session');
+            }
+        } catch (e) {
+            console.error("Session validation failed", e);
+        }
+      }
+      setIsLoading(false);
+    };
+
+    initApp();
   }, []);
 
   const handleLogin = (user: User) => {
@@ -36,7 +51,11 @@ const App: React.FC = () => {
     localStorage.removeItem('eval_ecole_session');
   };
 
-  if (isLoading) return <div className="flex items-center justify-center h-screen text-indigo-600">Chargement...</div>;
+  if (isLoading) return (
+    <div className="flex items-center justify-center h-screen bg-gray-50">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+    </div>
+  );
 
   return (
     <HashRouter>

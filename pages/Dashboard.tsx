@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { User, UserRole, PointEvent } from '../types';
 import { DataService } from '../services/dataService';
-import { Users, Trophy, Star, Activity } from 'lucide-react';
+import { Users, Trophy, Star, Activity, Loader } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 
@@ -10,6 +10,7 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
+  const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     pointsGivenThisWeek: 0,
     myPointsThisWeek: 0,
@@ -17,58 +18,66 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
   });
 
   useEffect(() => {
-    const events = DataService.getEvents();
-    const now = new Date();
-    const start = startOfWeek(now, { weekStartsOn: 1 }); // Monday start
-    const end = endOfWeek(now, { weekStartsOn: 1 });
+    const fetchData = async () => {
+        try {
+            const events = await DataService.getEvents();
+            
+            const now = new Date();
+            const start = startOfWeek(now, { weekStartsOn: 1 }); 
+            const end = endOfWeek(now, { weekStartsOn: 1 });
 
-    const thisWeekEvents = events.filter(e => 
-      isWithinInterval(parseISO(e.dateTime), { start, end })
-    );
+            const thisWeekEvents = events.filter(e => 
+                isWithinInterval(parseISO(e.dateTime), { start, end })
+            );
 
-    // Calculation based on role
-    let given = 0;
-    let received = 0;
+            // Calculation based on role
+            let given = 0;
+            let received = 0;
 
-    // Points given by me (Student/Admin)
-    if (currentUser.role === UserRole.ELEVE || currentUser.role === UserRole.ADMIN) {
-        given = thisWeekEvents.filter(e => e.createdById === currentUser.id).length;
-    }
+            if (currentUser.role === UserRole.ELEVE || currentUser.role === UserRole.ADMIN) {
+                given = thisWeekEvents.filter(e => e.createdById === currentUser.id).length;
+            }
 
-    // Points received (Adults)
-    if ([UserRole.PROFESSEUR, UserRole.SURVEILLANT, UserRole.DIRECTION].includes(currentUser.role)) {
-        received = thisWeekEvents
-            .filter(e => e.targetUserId === currentUser.id)
-            .reduce((acc, e) => acc + e.points, 0);
-    }
+            if ([UserRole.PROFESSEUR, UserRole.SURVEILLANT, UserRole.DIRECTION].includes(currentUser.role)) {
+                received = thisWeekEvents
+                    .filter(e => e.targetUserId === currentUser.id)
+                    .reduce((acc, e) => acc + e.points, 0);
+            }
 
-    // Determine top adult
-    const adultPoints: Record<string, number> = {};
-    thisWeekEvents.forEach(e => {
-        adultPoints[e.targetUserId] = (adultPoints[e.targetUserId] || 0) + e.points;
-    });
-    
-    let maxPoints = -Infinity;
-    let topAdultId = '';
-    Object.entries(adultPoints).forEach(([id, pts]) => {
-        if (pts > maxPoints) {
-            maxPoints = pts;
-            topAdultId = id;
+            // Determine top adult
+            const adultPoints: Record<string, number> = {};
+            thisWeekEvents.forEach(e => {
+                adultPoints[e.targetUserId] = (adultPoints[e.targetUserId] || 0) + e.points;
+            });
+            
+            let maxPoints = -Infinity;
+            let topAdultId = '';
+            Object.entries(adultPoints).forEach(([id, pts]) => {
+                if (pts > maxPoints) {
+                    maxPoints = pts;
+                    topAdultId = id;
+                }
+            });
+
+            let topAdultName = "Aucune donnée";
+            if (topAdultId) {
+                const u = await DataService.getUserById(topAdultId);
+                if (u) topAdultName = u.fullName;
+            }
+
+            setStats({
+                pointsGivenThisWeek: given,
+                myPointsThisWeek: received,
+                topRankedAdult: topAdultName
+            });
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setLoading(false);
         }
-    });
+    };
 
-    let topAdultName = "Aucune donnée";
-    if (topAdultId) {
-        const u = DataService.getUserById(topAdultId);
-        if (u) topAdultName = u.fullName;
-    }
-
-    setStats({
-        pointsGivenThisWeek: given,
-        myPointsThisWeek: received,
-        topRankedAdult: topAdultName
-    });
-
+    fetchData();
   }, [currentUser]);
 
   const Card = ({ title, value, icon: Icon, color }: any) => (
@@ -89,6 +98,8 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
     </div>
   );
 
+  if (loading) return <div className="p-8 text-center"><Loader className="animate-spin w-8 h-8 mx-auto text-indigo-600" /></div>;
+
   return (
     <div className="space-y-6">
       <div>
@@ -97,7 +108,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
       </div>
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {/* Widgets vary by role */}
         
         {currentUser.role === UserRole.ELEVE && (
            <Card 
@@ -137,7 +147,6 @@ const Dashboard: React.FC<DashboardProps> = ({ currentUser }) => {
         </Link>
       </div>
 
-      {/* Quick Actions */}
       <div className="mt-8">
         <h2 className="text-lg font-medium text-gray-900 mb-4">Actions rapides</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
