@@ -19,8 +19,10 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setLoading(true);
 
     try {
+        // On tente de récupérer les utilisateurs
         const users = await DataService.getUsers();
-        // Only Students and Admins can log in
+        
+        // Vérification classique
         const user = users.find(
           (u) => u.username === username && u.password === password && u.active
         );
@@ -30,8 +32,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         } else {
           setError('Identifiant ou mot de passe incorrect.');
         }
-    } catch (err) {
-        setError('Erreur de connexion au serveur.');
+    } catch (err: any) {
+        console.error("Login Error:", err);
+        // AFFICHER L'ERREUR EXACTE POUR LE DÉBOGAGE
+        const message = err.message || JSON.stringify(err) || 'Erreur inconnue';
+        setError(`Erreur technique : ${message}`);
     } finally {
         setLoading(false);
     }
@@ -60,7 +65,7 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                   <AlertCircle className="h-5 w-5 text-red-400" />
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm font-medium text-red-800">{error}</p>
+                  <p className="text-sm font-medium text-red-800 break-words">{error}</p>
                 </div>
               </div>
             </div>

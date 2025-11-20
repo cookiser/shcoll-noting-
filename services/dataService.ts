@@ -3,20 +3,21 @@ import { User, ClassGroup, PointEvent, UserRole, ActionDefinition } from '../typ
 import { PREDEFINED_ACTIONS } from '../constants';
 
 // Mapping functions (DB snake_case to App camelCase)
+// Added safety checks for data integrity
 const mapUser = (data: any): User => ({
   id: data.id,
-  fullName: data.full_name,
+  fullName: data.full_name || 'Utilisateur Inconnu',
   username: data.username || '',
   password: data.password || '',
-  role: data.role as UserRole,
-  active: data.active,
+  role: (data.role as UserRole) || UserRole.ELEVE,
+  active: data.active === true, // Ensure boolean
   classId: data.class_id || undefined,
   assignedClassIds: data.assigned_class_ids || []
 });
 
 const mapClass = (data: any): ClassGroup => ({
   id: data.id,
-  name: data.name
+  name: data.name || 'Classe sans nom'
 });
 
 const mapEvent = (data: any): PointEvent => ({
@@ -27,7 +28,7 @@ const mapEvent = (data: any): PointEvent => ({
   targetUserId: data.target_user_id,
   actionId: data.action_id || null,
   customLabel: data.custom_label || undefined,
-  points: data.points
+  points: data.points || 0
 });
 
 export const DataService = {
@@ -41,15 +42,11 @@ export const DataService = {
         console.error("Erreur DB (Init):", error);
         // Si on a la moindre erreur (table manquante, droits refusés, auth failed), 
         // on renvoie MISSING_TABLES pour afficher l'assistant qui contient le script SQL de réparation.
-        // Cela couvre les codes 42P01 (undefined_table), 42501 (permission_denied), et autres.
         return 'MISSING_TABLES';
       }
       
-      // Si table vide mais existe, on considère que l'installation n'est pas finie
-      if (count === 0) {
-          return 'MISSING_TABLES'; 
-      }
-
+      // Si la requête passe sans erreur, même si count est 0, la table existe.
+      // On considère que c'est OK (l'admin pourra créer le premier user si besoin, ou le script SQL l'a fait).
       return 'OK';
     } catch (error) {
       console.error("Erreur critique lors de l'init:", error);
@@ -60,7 +57,14 @@ export const DataService = {
   // --- USERS ---
   getUsers: async (): Promise<User[]> => {
     const { data, error } = await supabase.from('users').select('*');
-    if (error) throw error;
+    
+    if (error) {
+        console.error("Erreur getUsers:", error);
+        throw error;
+    }
+    
+    if (!data) return []; // Safety check if data is null
+    
     return data.map(mapUser);
   },
 
@@ -93,6 +97,7 @@ export const DataService = {
   getClasses: async (): Promise<ClassGroup[]> => {
     const { data, error } = await supabase.from('classes').select('*').order('name');
     if (error) throw error;
+    if (!data) return [];
     return data.map(mapClass);
   },
 
@@ -109,6 +114,7 @@ export const DataService = {
   getEvents: async (): Promise<PointEvent[]> => {
     const { data, error } = await supabase.from('events').select('*');
     if (error) throw error;
+    if (!data) return [];
     return data.map(mapEvent);
   },
 
