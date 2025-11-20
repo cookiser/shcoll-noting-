@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { DataService } from '../services/dataService';
 import { UserRole, User, PointEvent } from '../types';
-import { Trophy, Medal, Award, Loader } from 'lucide-react';
+import { Trophy, Medal, Award, Loader, X, AlertTriangle } from 'lucide-react';
 import { startOfWeek, endOfWeek, isWithinInterval, parseISO } from 'date-fns';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -9,6 +9,10 @@ const Rankings: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [events, setEvents] = useState<PointEvent[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Detail Modal State
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [userStats, setUserStats] = useState<{ positives: PointEvent[], negatives: PointEvent[] }>({ positives: [], negatives: [] });
 
   useEffect(() => {
       const load = async () => {
@@ -19,6 +23,28 @@ const Rankings: React.FC = () => {
       };
       load();
   }, []);
+
+  // Logic to open details
+  const handleUserClick = async (user: User) => {
+      setSelectedUser(user);
+      
+      // Filter events for this user, sort by points
+      // We use the global 'events' list which is already loaded for efficiency, 
+      // but normally for strict consistency we could fetch fresh data.
+      const userEvents = events.filter(e => e.targetUserId === user.id);
+      
+      const pos = userEvents
+        .filter(e => e.points > 0)
+        .sort((a, b) => b.points - a.points) // Descending
+        .slice(0, 10); // Top 10
+
+      const neg = userEvents
+        .filter(e => e.points < 0)
+        .sort((a, b) => a.points - b.points) // Ascending (most negative first)
+        .slice(0, 10); // Top 10 (Worst)
+
+      setUserStats({ positives: pos, negatives: neg });
+  };
 
   // Calculate Weekly Stats
   const rankings = useMemo(() => {
@@ -77,7 +103,11 @@ const Rankings: React.FC = () => {
       </div>
       <ul className="divide-y divide-gray-100">
         {data.map((item: any, index: number) => (
-            <li key={item.user.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+            <li 
+                key={item.user.id} 
+                onClick={() => handleUserClick(item.user)}
+                className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors cursor-pointer group"
+            >
                 <div className="flex items-center">
                     <span className={`w-6 h-6 flex-shrink-0 flex items-center justify-center rounded-full text-xs font-bold mr-3 ${
                         index === 0 ? 'bg-yellow-100 text-yellow-700' : 
@@ -87,7 +117,9 @@ const Rankings: React.FC = () => {
                         {index + 1}
                     </span>
                     <div>
-                        <p className="text-sm font-medium text-gray-900">{item.user.fullName}</p>
+                        <p className="text-sm font-medium text-gray-900 group-hover:text-indigo-600 underline-offset-2 group-hover:underline transition-all">
+                            {item.user.fullName}
+                        </p>
                         <p className="text-xs text-gray-400">{item.user.role}</p>
                     </div>
                 </div>
@@ -109,11 +141,17 @@ const Rankings: React.FC = () => {
       score: i.score
   }));
 
+  const getActionLabel = (eventId: string | null, customLabel?: string) => {
+      if (!eventId) return customLabel || 'Action personnalisée';
+      const predefined = DataService.getActions().find(a => a.id === eventId);
+      return predefined ? predefined.label : (customLabel || 'Inconnu');
+  };
+
   return (
     <div className="space-y-8">
       <div className="text-center sm:text-left">
         <h1 className="text-3xl font-extrabold text-gray-900">Classement Hebdomadaire (SEM)</h1>
-        <p className="mt-2 text-gray-500">Les points sont réinitialisés chaque semaine. Que le meilleur gagne !</p>
+        <p className="mt-2 text-gray-500">Les points sont réinitialisés chaque semaine. Cliquez sur un nom pour voir les détails.</p>
       </div>
 
       {/* Chart Section */}
@@ -142,6 +180,59 @@ const Rankings: React.FC = () => {
          <RankingTable title="Direction" data={rankings.dir} icon={Medal} colorClass="bg-purple-600" />
          <RankingTable title="Global" data={rankings.all} icon={Trophy} colorClass="bg-slate-800" />
       </div>
+
+      {/* Details Modal */}
+      {selectedUser && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4 animate-fade-in">
+              <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+                  {/* Header */}
+                  <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                      <div>
+                          <h2 className="text-xl font-bold text-gray-900">{selectedUser.fullName}</h2>
+                          <p className="text-sm text-gray-500">{selectedUser.role}</p>
+                      </div>
+                      <button onClick={() => setSelectedUser(null)} className="text-gray-400 hover:text-gray-600">
+                          <X className="w-6 h-6" />
+                      </button>
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                      {/* Positives */}
+                      <div className="space-y-3">
+                          <h3 className="text-green-700 font-bold flex items-center border-b border-green-200 pb-2">
+                              <Trophy className="w-5 h-5 mr-2" /> Faits d'armes (Top 10)
+                          </h3>
+                          <ul className="space-y-2">
+                              {userStats.positives.map((e, i) => (
+                                  <li key={i} className="bg-green-50 p-3 rounded border border-green-100 flex justify-between items-center">
+                                      <span className="text-sm text-green-900 font-medium">{getActionLabel(e.actionId, e.customLabel)}</span>
+                                      <span className="text-xs font-bold bg-green-200 text-green-800 px-2 py-1 rounded">+{e.points}</span>
+                                  </li>
+                              ))}
+                              {userStats.positives.length === 0 && <p className="text-sm text-gray-400 italic">Aucune action positive notable.</p>}
+                          </ul>
+                      </div>
+
+                      {/* Negatives */}
+                      <div className="space-y-3">
+                          <h3 className="text-red-700 font-bold flex items-center border-b border-red-200 pb-2">
+                              <AlertTriangle className="w-5 h-5 mr-2" /> Casier (Top 10 Pires)
+                          </h3>
+                          <ul className="space-y-2">
+                              {userStats.negatives.map((e, i) => (
+                                  <li key={i} className="bg-red-50 p-3 rounded border border-red-100 flex justify-between items-center">
+                                      <span className="text-sm text-red-900 font-medium">{getActionLabel(e.actionId, e.customLabel)}</span>
+                                      <span className="text-xs font-bold bg-red-200 text-red-800 px-2 py-1 rounded">{e.points}</span>
+                                  </li>
+                              ))}
+                              {userStats.negatives.length === 0 && <p className="text-sm text-gray-400 italic">Casier vierge.</p>}
+                          </ul>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
     </div>
   );
 };

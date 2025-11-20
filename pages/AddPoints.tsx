@@ -19,8 +19,11 @@ const AddPoints: React.FC<AddPointsProps> = ({ currentUser }) => {
 
   const [selectedTargetId, setSelectedTargetId] = useState<string | null>(null);
   const [selectedActionId, setSelectedActionId] = useState<string | null>(null);
+  
+  // Custom Action State
   const [customActionText, setCustomActionText] = useState('');
-  const [customActionType, setCustomActionType] = useState<ActionType>(ActionType.POSITIVE);
+  const [customPoints, setCustomPoints] = useState<number | null>(null);
+  
   const [searchTerm, setSearchTerm] = useState('');
   const [success, setSuccess] = useState(false);
 
@@ -86,11 +89,10 @@ const AddPoints: React.FC<AddPointsProps> = ({ currentUser }) => {
     let finalCustomLabel = undefined;
 
     if (selectedActionId === CUSTOM_ACTION_ID) {
-        if (!customActionText.trim()) return;
+        if (!customActionText.trim() || customPoints === null) return;
         finalCustomLabel = customActionText;
         actionId = null;
-        // Custom Points: +/- 1 for simplicity/safety
-        points = customActionType === ActionType.POSITIVE ? 1 : -1;
+        points = customPoints;
     } else {
         const act = actions.find(a => a.id === selectedActionId);
         if (act) points = act.defaultPoints;
@@ -115,6 +117,7 @@ const AddPoints: React.FC<AddPointsProps> = ({ currentUser }) => {
         setSelectedTargetId(null);
         setSelectedActionId(null);
         setCustomActionText('');
+        setCustomPoints(null);
         setSearchTerm('');
         navigate('/');
     }, 1500);
@@ -205,7 +208,10 @@ const AddPoints: React.FC<AddPointsProps> = ({ currentUser }) => {
                     {/* Custom Action Option */}
                     <button
                         type="button"
-                        onClick={() => setSelectedActionId(CUSTOM_ACTION_ID)}
+                        onClick={() => {
+                            setSelectedActionId(CUSTOM_ACTION_ID);
+                            setCustomPoints(null);
+                        }}
                         className={`relative text-left p-4 border rounded-lg shadow-sm hover:shadow-md transition-all flex items-center justify-between ${selectedActionId === CUSTOM_ACTION_ID ? 'border-indigo-500 bg-indigo-50 ring-1 ring-indigo-200' : 'bg-white border-gray-200'}`}
                     >
                         <span className="text-sm font-medium text-gray-900">Action personnalisée...</span>
@@ -225,30 +231,44 @@ const AddPoints: React.FC<AddPointsProps> = ({ currentUser }) => {
                     value={customActionText}
                     onChange={(e) => setCustomActionText(e.target.value)}
                 />
-                <label className="block text-sm font-medium text-gray-700 mb-1">Type d'action</label>
-                <div className="flex space-x-4">
-                    <label className="inline-flex items-center">
-                        <input 
-                            type="radio" 
-                            className="form-radio text-green-600" 
-                            name="customType" 
-                            value={ActionType.POSITIVE} 
-                            checked={customActionType === ActionType.POSITIVE}
-                            onChange={() => setCustomActionType(ActionType.POSITIVE)}
-                        />
-                        <span className="ml-2 text-sm text-gray-700">Positive (+1)</span>
-                    </label>
-                    <label className="inline-flex items-center">
-                        <input 
-                            type="radio" 
-                            className="form-radio text-red-600" 
-                            name="customType" 
-                            value={ActionType.NEGATIVE} 
-                            checked={customActionType === ActionType.NEGATIVE}
-                            onChange={() => setCustomActionType(ActionType.NEGATIVE)}
-                        />
-                        <span className="ml-2 text-sm text-gray-700">Négative (-1)</span>
-                    </label>
+                
+                <label className="block text-sm font-medium text-gray-700 mb-2">Points à attribuer</label>
+                <div className="space-y-3">
+                    {/* Positive Values */}
+                    <div className="flex space-x-2">
+                        {[1, 2, 3, 4, 5].map(val => (
+                            <button
+                                key={`pos-${val}`}
+                                type="button"
+                                onClick={() => setCustomPoints(val)}
+                                className={`flex-1 py-2 rounded text-sm font-bold transition-colors ${
+                                    customPoints === val 
+                                    ? 'bg-green-600 text-white shadow-md transform scale-105' 
+                                    : 'bg-green-50 text-green-700 border border-green-200 hover:bg-green-100'
+                                }`}
+                            >
+                                +{val}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Negative Values */}
+                    <div className="flex space-x-2">
+                        {[-1, -2, -3, -4, -5].map(val => (
+                            <button
+                                key={`neg-${val}`}
+                                type="button"
+                                onClick={() => setCustomPoints(val)}
+                                className={`flex-1 py-2 rounded text-sm font-bold transition-colors ${
+                                    customPoints === val 
+                                    ? 'bg-red-600 text-white shadow-md transform scale-105' 
+                                    : 'bg-red-50 text-red-700 border border-red-200 hover:bg-red-100'
+                                }`}
+                            >
+                                {val}
+                            </button>
+                        ))}
+                    </div>
                 </div>
              </div>
         )}
@@ -257,7 +277,7 @@ const AddPoints: React.FC<AddPointsProps> = ({ currentUser }) => {
         <div className="pt-4">
             <button
                 onClick={handleSubmit}
-                disabled={!selectedTargetId || !selectedActionId || (selectedActionId === CUSTOM_ACTION_ID && !customActionText) || submitting}
+                disabled={!selectedTargetId || !selectedActionId || (selectedActionId === CUSTOM_ACTION_ID && (!customActionText || customPoints === null)) || submitting}
                 className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
             >
                 {submitting ? <Loader className="animate-spin w-4 h-4" /> : <><Send className="w-4 h-4 mr-2" /> Envoyer l'évaluation</>}

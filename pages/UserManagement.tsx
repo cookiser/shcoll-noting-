@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, UserRole, ClassGroup } from '../types';
 import { DataService } from '../services/dataService';
-import { Plus, Edit2, Trash2, X, BookOpen, GraduationCap, Briefcase, Loader, AlertTriangle, RefreshCcw, ShieldAlert } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, BookOpen, GraduationCap, Briefcase, Loader, AlertTriangle, RefreshCcw, ShieldAlert, Sliders } from 'lucide-react';
 
 const UserManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'eleves' | 'personnel' | 'classes' | 'points'>('eleves');
@@ -13,6 +13,12 @@ const UserManagement: React.FC = () => {
   // Modal states
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  
+  // Adjust Score Modal State
+  const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
+  const [adjustTargetUser, setAdjustTargetUser] = useState<User | null>(null);
+  const [currentScore, setCurrentScore] = useState<number>(0);
+  const [newTargetScore, setNewTargetScore] = useState<string>('');
 
   // New Class State
   const [newClassName, setNewClassName] = useState('');
@@ -112,6 +118,55 @@ const UserManagement: React.FC = () => {
       });
   };
 
+  // --- Score Adjustment Logic ---
+  const openAdjustModal = async (user: User) => {
+      setAdjustTargetUser(user);
+      setActionLoading(true);
+      try {
+          // Fetch current events to calculate score
+          const events = await DataService.getEventsForTarget(user.id);
+          const score = events.reduce((acc, e) => acc + e.points, 0);
+          setCurrentScore(score);
+          setNewTargetScore(score.toString());
+          setIsAdjustModalOpen(true);
+      } catch (e) {
+          alert("Erreur lors de la récupération du score.");
+      } finally {
+          setActionLoading(false);
+      }
+  };
+
+  const handleAdjustScore = async () => {
+      if (!adjustTargetUser || !newTargetScore) return;
+      const target = parseInt(newTargetScore);
+      if (isNaN(target)) return;
+
+      const diff = target - currentScore;
+      if (diff === 0) {
+          setIsAdjustModalOpen(false);
+          return;
+      }
+
+      setActionLoading(true);
+      try {
+          await DataService.addEvent({
+              id: Date.now().toString(),
+              dateTime: new Date().toISOString(),
+              createdById: 'admin_adjust', // Marqueur système
+              targetUserId: adjustTargetUser.id,
+              actionId: null,
+              customLabel: 'Ajustement administratif du score',
+              points: diff
+          });
+          alert(`Score ajusté de ${currentScore} à ${target}.`);
+          setIsAdjustModalOpen(false);
+      } catch (e) {
+          alert("Erreur lors de l'ajustement.");
+      } finally {
+          setActionLoading(false);
+      }
+  };
+
   // --- Class Logic ---
 
   const handleAddClass = async (e: React.FormEvent) => {
@@ -174,7 +229,7 @@ const UserManagement: React.FC = () => {
 
   const isEleveForm = formData.role === UserRole.ELEVE;
 
-  if (loading && !isUserModalOpen) return <div className="p-8 text-center"><Loader className="animate-spin w-8 h-8 mx-auto text-indigo-600" /></div>;
+  if (loading && !isUserModalOpen && !isAdjustModalOpen) return <div className="p-8 text-center"><Loader className="animate-spin w-8 h-8 mx-auto text-indigo-600" /></div>;
 
   return (
     <div className="space-y-6">
@@ -280,7 +335,7 @@ const UserManagement: React.FC = () => {
                         <tr>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rôle</th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assignations (Classes)</th>
+                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assignations</th>
                             <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
                             <th className="relative px-6 py-3"><span className="sr-only">Actions</span></th>
                         </tr>
@@ -305,6 +360,13 @@ const UserManagement: React.FC = () => {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <button 
+                                        onClick={() => openAdjustModal(user)} 
+                                        className="text-indigo-600 hover:text-indigo-900 mr-4"
+                                        title="Ajuster le score"
+                                    >
+                                        <Sliders className="w-4 h-4" />
+                                    </button>
                                     <button onClick={() => openUserModal('personnel', user)} className="text-indigo-600 hover:text-indigo-900 mr-4"><Edit2 className="w-4 h-4" /></button>
                                     <button onClick={() => handleDeleteUser(user.id)} className="text-red-600 hover:text-red-900"><Trash2 className="w-4 h-4" /></button>
                                 </td>
@@ -433,6 +495,51 @@ const UserManagement: React.FC = () => {
                           <li className="px-6 py-4 text-center text-gray-500">Aucun personnel trouvé.</li>
                       )}
                   </ul>
+              </div>
+          </div>
+      )}
+
+      {/* Adjust Score Modal */}
+      {isAdjustModalOpen && adjustTargetUser && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
+              <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Ajuster le score</h3>
+                  <p className="text-sm text-gray-500 mb-4">Modifiez manuellement le score de {adjustTargetUser.fullName}.</p>
+                  
+                  <div className="mb-4">
+                      <div className="flex justify-between text-sm mb-1">
+                          <span className="text-gray-500">Score actuel :</span>
+                          <span className="font-bold">{currentScore} pts</span>
+                      </div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Nouveau total souhaité :</label>
+                      <input 
+                          type="number" 
+                          value={newTargetScore}
+                          onChange={(e) => setNewTargetScore(e.target.value)}
+                          className="block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                      />
+                      {newTargetScore && !isNaN(parseInt(newTargetScore)) && (
+                          <p className="text-xs text-indigo-600 mt-1">
+                              {parseInt(newTargetScore) - currentScore > 0 ? '+' : ''}{parseInt(newTargetScore) - currentScore} points seront ajoutés via un ajustement.
+                          </p>
+                      )}
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                      <button 
+                        onClick={() => setIsAdjustModalOpen(false)} 
+                        className="bg-white py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 hover:bg-gray-50 mr-3"
+                      >
+                          Annuler
+                      </button>
+                      <button 
+                        onClick={handleAdjustScore} 
+                        disabled={!newTargetScore}
+                        className="inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none"
+                      >
+                          Appliquer
+                      </button>
+                  </div>
               </div>
           </div>
       )}

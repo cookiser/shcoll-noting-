@@ -121,6 +121,14 @@ export const DataService = {
     return data.map(mapEvent);
   },
 
+  // Récupère les événements pour une cible spécifique (utile pour le classement détaillé et l'ajustement)
+  getEventsForTarget: async (targetUserId: string): Promise<PointEvent[]> => {
+    const { data, error } = await supabase.from('events').select('*').eq('target_user_id', targetUserId);
+    if (error) throw error;
+    if (!data) return [];
+    return data.map(mapEvent);
+  },
+
   addEvent: async (event: PointEvent) => {
     const payload = {
       id: event.id,
@@ -139,9 +147,6 @@ export const DataService = {
   
   // Supprimer TOUS les points (Reset global)
   deleteAllEvents: async () => {
-    // L'astuce pour tout supprimer sans filtre est de demander id != 'impossible_value'
-    // ou simplement d'utiliser une condition toujours vraie si Supabase l'accepte.
-    // Ici on supprime tout ce qui a un ID (donc tout).
     const { error } = await supabase.from('events').delete().neq('id', '0');
     if (error) throw error;
   },
