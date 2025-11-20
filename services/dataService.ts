@@ -30,6 +30,9 @@ const mapEvent = (data: any): PointEvent => ({
   points: data.points || 0
 });
 
+// Variable pour stocker la dernière erreur d'init
+let lastInitError: any = null;
+
 export const DataService = {
   // INITIALISATION (Check connectivity)
   init: async (): Promise<'OK' | 'MISSING_TABLES'> => {
@@ -39,19 +42,21 @@ export const DataService = {
       const { error } = await supabase.from('classes').select('id').limit(1);
       
       if (error) {
-        // Correction du [object Object] : on convertit l'erreur en texte lisible
+        lastInitError = error;
         console.error("Erreur DB (Init):", JSON.stringify(error, null, 2));
         return 'MISSING_TABLES';
       }
       
       return 'OK';
     } catch (error: any) {
-      // Gestion des exceptions JS imprévues avec logging propre
+      lastInitError = error;
       const msg = error && typeof error === 'object' ? JSON.stringify(error) : String(error);
       console.error("Exception critique lors de l'init:", msg);
       return 'MISSING_TABLES';
     }
   },
+
+  getLastError: () => lastInitError,
 
   // --- USERS ---
   getUsers: async (): Promise<User[]> => {
@@ -128,6 +133,23 @@ export const DataService = {
       points: event.points
     };
     await supabase.from('events').insert([payload]);
+  },
+
+  // --- EVENTS MANAGEMENT (ADMIN) ---
+  
+  // Supprimer TOUS les points (Reset global)
+  deleteAllEvents: async () => {
+    // L'astuce pour tout supprimer sans filtre est de demander id != 'impossible_value'
+    // ou simplement d'utiliser une condition toujours vraie si Supabase l'accepte.
+    // Ici on supprime tout ce qui a un ID (donc tout).
+    const { error } = await supabase.from('events').delete().neq('id', '0');
+    if (error) throw error;
+  },
+
+  // Supprimer les points d'une cible spécifique
+  deleteEventsForTarget: async (targetUserId: string) => {
+    const { error } = await supabase.from('events').delete().eq('target_user_id', targetUserId);
+    if (error) throw error;
   },
 
   // --- CONSTANTS ---

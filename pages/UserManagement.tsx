@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { User, UserRole, ClassGroup } from '../types';
 import { DataService } from '../services/dataService';
-import { Plus, Edit2, Trash2, X, BookOpen, GraduationCap, Briefcase, Loader } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, BookOpen, GraduationCap, Briefcase, Loader, AlertTriangle, RefreshCcw, ShieldAlert } from 'lucide-react';
 
 const UserManagement: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'eleves' | 'personnel' | 'classes'>('eleves');
+  const [activeTab, setActiveTab] = useState<'eleves' | 'personnel' | 'classes' | 'points'>('eleves');
   const [users, setUsers] = useState<User[]>([]);
   const [classes, setClasses] = useState<ClassGroup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -134,6 +134,40 @@ const UserManagement: React.FC = () => {
       }
   };
 
+  // --- Points Logic ---
+  const handleDeleteAllPoints = async () => {
+      const confirm1 = window.confirm("⚠️ ATTENTION : Vous êtes sur le point de supprimer TOUS les points de l'application.");
+      if (confirm1) {
+          const confirm2 = window.confirm("Êtes-vous vraiment sûr ? Cette action est irréversible.");
+          if (confirm2) {
+              setActionLoading(true);
+              try {
+                  await DataService.deleteAllEvents();
+                  alert("Tous les points ont été réinitialisés.");
+              } catch (e) {
+                  console.error(e);
+                  alert("Erreur lors de la suppression.");
+              } finally {
+                  setActionLoading(false);
+              }
+          }
+      }
+  };
+
+  const handleDeleteTargetPoints = async (userId: string, userName: string) => {
+      if (window.confirm(`Voulez-vous remettre à zéro les points de ${userName} ?`)) {
+          setActionLoading(true);
+          try {
+              await DataService.deleteEventsForTarget(userId);
+              alert(`Points de ${userName} réinitialisés.`);
+          } catch (e) {
+              alert("Erreur lors de la suppression.");
+          } finally {
+              setActionLoading(false);
+          }
+      }
+  };
+
   // Filters
   const studentUsers = users.filter(u => u.role === UserRole.ELEVE);
   const staffUsers = users.filter(u => [UserRole.PROFESSEUR, UserRole.SURVEILLANT, UserRole.DIRECTION, UserRole.COMPTABILITE].includes(u.role));
@@ -150,21 +184,21 @@ const UserManagement: React.FC = () => {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-gray-200 overflow-x-auto">
         <nav className="-mb-px flex space-x-8">
             <button
                 onClick={() => setActiveTab('eleves')}
                 className={`${activeTab === 'eleves' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
             >
                 <GraduationCap className="w-4 h-4 mr-2" />
-                Élèves (Comptes)
+                Élèves
             </button>
             <button
                 onClick={() => setActiveTab('personnel')}
                 className={`${activeTab === 'personnel' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
             >
                 <Briefcase className="w-4 h-4 mr-2" />
-                Personnel (Cibles)
+                Personnel
             </button>
             <button
                 onClick={() => setActiveTab('classes')}
@@ -172,6 +206,13 @@ const UserManagement: React.FC = () => {
             >
                 <BookOpen className="w-4 h-4 mr-2" />
                 Classes
+            </button>
+            <button
+                onClick={() => setActiveTab('points')}
+                className={`${activeTab === 'points' ? 'border-red-500 text-red-600' : 'border-transparent text-gray-500 hover:text-red-700 hover:border-red-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm flex items-center`}
+            >
+                <ShieldAlert className="w-4 h-4 mr-2" />
+                Gestion des Points
             </button>
         </nav>
       </div>
@@ -330,6 +371,68 @@ const UserManagement: React.FC = () => {
                           </button>
                       </form>
                   </div>
+              </div>
+          </div>
+      )}
+
+      {/* CONTENT: POINTS MANAGEMENT */}
+      {activeTab === 'points' && (
+          <div className="animate-fade-in space-y-8">
+              
+              {/* Global Reset */}
+              <div className="bg-red-50 border-l-4 border-red-500 p-6 rounded-r-lg shadow-sm">
+                  <div className="flex justify-between items-center">
+                      <div>
+                          <h3 className="text-lg font-bold text-red-900 flex items-center">
+                              <AlertTriangle className="w-5 h-5 mr-2" />
+                              Réinitialisation Globale
+                          </h3>
+                          <p className="text-sm text-red-700 mt-1">
+                              Supprime l'intégralité de l'historique des points (Professeurs, Surveillants, Direction).
+                              <br />
+                              Utilisez cette fonction en début d'année ou de trimestre. <strong>Action irréversible.</strong>
+                          </p>
+                      </div>
+                      <button 
+                        onClick={handleDeleteAllPoints}
+                        className="ml-4 px-4 py-2 bg-red-600 text-white font-bold rounded hover:bg-red-700 shadow transition-colors"
+                      >
+                          TOUT SUPPRIMER
+                      </button>
+                  </div>
+              </div>
+
+              {/* Individual Reset */}
+              <div className="bg-white shadow overflow-hidden border-b border-gray-200 sm:rounded-lg">
+                  <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+                      <h3 className="text-lg font-medium text-gray-900">Réinitialisation par Personne</h3>
+                      <p className="text-sm text-gray-500">Remettre à zéro le compteur d'un adulte spécifique.</p>
+                  </div>
+                  <ul className="divide-y divide-gray-200 max-h-96 overflow-y-auto">
+                      {staffUsers.map(user => (
+                          <li key={user.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50">
+                              <div className="flex items-center">
+                                  <div className={`h-8 w-8 rounded-full flex items-center justify-center text-white text-xs font-bold mr-3 ${user.role === UserRole.PROFESSEUR ? 'bg-blue-500' : 'bg-orange-500'}`}>
+                                      {user.role.charAt(0)}
+                                  </div>
+                                  <div>
+                                      <p className="text-sm font-medium text-gray-900">{user.fullName}</p>
+                                      <p className="text-xs text-gray-500">{user.role}</p>
+                                  </div>
+                              </div>
+                              <button 
+                                onClick={() => handleDeleteTargetPoints(user.id, user.fullName)}
+                                className="text-gray-400 hover:text-red-600 flex items-center text-sm"
+                                title="Remettre les points à zéro"
+                              >
+                                  <RefreshCcw className="w-4 h-4 mr-1" /> Remettre à zéro
+                              </button>
+                          </li>
+                      ))}
+                      {staffUsers.length === 0 && (
+                          <li className="px-6 py-4 text-center text-gray-500">Aucun personnel trouvé.</li>
+                      )}
+                  </ul>
               </div>
           </div>
       )}
