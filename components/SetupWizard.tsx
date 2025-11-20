@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { Copy, Check, AlertTriangle, Database } from 'lucide-react';
+import { Copy, Check, AlertTriangle, Database, RefreshCw } from 'lucide-react';
 
-const SQL_SCRIPT = `-- 1. Nettoyage (au cas où)
+// ID du projet extrait de la configuration pour vérification visuelle
+const PROJECT_ID = 'zafmtyqrtgiwfydkfmgq';
+
+const SQL_SCRIPT = `-- 1. Nettoyage (Supprime les anciennes versions pour éviter les conflits)
 drop table if exists public.events;
 drop table if exists public.users;
 drop table if exists public.classes;
 
--- 2. Création des tables
+-- 2. Création des tables (Les tiroirs de rangement)
 create table public.classes (
   id text primary key,
   name text not null
@@ -34,7 +37,7 @@ create table public.events (
   points integer not null
 );
 
--- 3. OUVERTURE DES DROITS (IMPORTANT)
+-- 3. OUVERTURE DES DROITS (Corrige l'erreur "Privilèges")
 alter table public.classes disable row level security;
 alter table public.users disable row level security;
 alter table public.events disable row level security;
@@ -57,7 +60,10 @@ values ('eleve1', 'Lucas', 'eleve1', '123', 'Élève', true, 'c6a');
 
 insert into public.users (id, full_name, role, active) values 
 ('dir1', 'M. Le Directeur', 'Direction', true),
-('surv1', 'Mme La Surveillante', 'Surveillant', true);`;
+('surv1', 'Mme La Surveillante', 'Surveillant', true);
+
+-- 5. FORCE LE RAFRAÎCHISSEMENT DU CACHE (Corrige l'erreur "Schema Cache")
+NOTIFY pgrst, 'reload config';`;
 
 const SetupWizard: React.FC = () => {
   const [copied, setCopied] = useState(false);
@@ -71,21 +77,29 @@ const SetupWizard: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
       <div className="max-w-3xl w-full bg-white rounded-xl shadow-xl overflow-hidden">
-        <div className="bg-indigo-600 px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center text-white">
-                <Database className="w-6 h-6 mr-3" />
-                <h1 className="text-xl font-bold">Installation de la Base de Données</h1>
+        <div className="bg-indigo-600 px-6 py-4">
+            <div className="flex items-center justify-between text-white mb-2">
+                <div className="flex items-center">
+                    <Database className="w-6 h-6 mr-3" />
+                    <h1 className="text-xl font-bold">Installation & Réparation</h1>
+                </div>
+                <span className="bg-yellow-400 text-indigo-900 text-xs font-bold px-2 py-1 rounded uppercase">Action requise</span>
             </div>
-            <span className="bg-yellow-400 text-indigo-900 text-xs font-bold px-2 py-1 rounded uppercase">Requis</span>
+            <div className="text-indigo-100 text-xs font-mono">
+                Projet ID: <span className="font-bold text-white">{PROJECT_ID}</span>
+            </div>
         </div>
 
         <div className="p-6 space-y-6">
             <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4">
                 <div className="flex">
-                    <AlertTriangle className="h-5 w-5 text-yellow-400" />
+                    <AlertTriangle className="h-5 w-5 text-yellow-400 flex-shrink-0" />
                     <div className="ml-3">
-                        <p className="text-sm text-yellow-700">
-                            L'application est connectée à Supabase, mais les tables sont introuvables ou inaccessibles.
+                        <p className="text-sm text-yellow-700 font-bold">
+                            Erreur de configuration détectée (Tables manquantes ou Cache expiré).
+                        </p>
+                        <p className="text-sm text-yellow-600 mt-1">
+                            L'erreur "Schema Cache" signifie que Supabase n'a pas encore vu vos nouvelles tables. Ce script contient la commande pour forcer la mise à jour.
                         </p>
                     </div>
                 </div>
@@ -94,11 +108,11 @@ const SetupWizard: React.FC = () => {
             <div className="space-y-4">
                 <h3 className="text-lg font-medium text-gray-900">Instructions :</h3>
                 <ol className="list-decimal list-inside space-y-2 text-gray-600 ml-2">
+                    <li>Vérifiez que l'URL de votre navigateur Supabase contient l'ID : <strong>{PROJECT_ID}</strong></li>
                     <li>Copiez le code SQL ci-dessous.</li>
-                    <li>Allez dans votre projet Supabase, menu <strong>SQL Editor</strong>.</li>
-                    <li>Collez le code dans une nouvelle requête ("New Query").</li>
-                    <li>Cliquez sur <strong>RUN</strong>.</li>
-                    <li>Revenez ici et rafraîchissez la page.</li>
+                    <li>Allez dans Supabase &gt; <strong>SQL Editor</strong> &gt; <strong>New Query</strong>.</li>
+                    <li>Collez le code et cliquez sur <strong>RUN</strong>.</li>
+                    <li>Attendez le message "Success", puis rafraîchissez cette page.</li>
                 </ol>
             </div>
 

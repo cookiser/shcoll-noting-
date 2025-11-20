@@ -3,14 +3,13 @@ import { User, ClassGroup, PointEvent, UserRole, ActionDefinition } from '../typ
 import { PREDEFINED_ACTIONS } from '../constants';
 
 // Mapping functions (DB snake_case to App camelCase)
-// Added safety checks for data integrity
 const mapUser = (data: any): User => ({
   id: data.id,
   fullName: data.full_name || 'Utilisateur Inconnu',
   username: data.username || '',
   password: data.password || '',
   role: (data.role as UserRole) || UserRole.ELEVE,
-  active: data.active === true, // Ensure boolean
+  active: data.active === true, 
   classId: data.class_id || undefined,
   assignedClassIds: data.assigned_class_ids || []
 });
@@ -35,22 +34,30 @@ export const DataService = {
   // INITIALISATION (Check connectivity)
   init: async (): Promise<'OK' | 'MISSING_TABLES'> => {
     try {
-      // Tentative de lecture simple pour voir si la table existe
+      // Tentative de lecture simple
       const { count, error } = await supabase.from('users').select('*', { count: 'exact', head: true });
       
       if (error) {
         console.error("Erreur DB (Init):", error);
-        // Si on a la moindre erreur (table manquante, droits refusés, auth failed), 
-        // on renvoie MISSING_TABLES pour afficher l'assistant qui contient le script SQL de réparation.
+        
+        // Détection spécifique des erreurs qui nécessitent de relancer le script SQL
+        const msg = error.message?.toLowerCase() || '';
+        if (
+            msg.includes('relation "public.users" does not exist') || // Table manquante
+            msg.includes('permission denied') || // Droits RLS
+            msg.includes('schema cache') // Cache Supabase pas à jour
+        ) {
+            return 'MISSING_TABLES';
+        }
+        
+        // Pour les autres erreurs (réseau...), on tente quand même, sinon l'appli est bloquée
         return 'MISSING_TABLES';
       }
       
-      // Si la requête passe sans erreur, même si count est 0, la table existe.
-      // On considère que c'est OK (l'admin pourra créer le premier user si besoin, ou le script SQL l'a fait).
       return 'OK';
     } catch (error) {
       console.error("Erreur critique lors de l'init:", error);
-      return 'MISSING_TABLES'; // En cas de crash total, proposer le script
+      return 'MISSING_TABLES';
     }
   },
 
@@ -60,11 +67,11 @@ export const DataService = {
     
     if (error) {
         console.error("Erreur getUsers:", error);
+        // Si on tombe sur l'erreur de cache ici, on la propage pour l'afficher
         throw error;
     }
     
-    if (!data) return []; // Safety check if data is null
-    
+    if (!data) return [];
     return data.map(mapUser);
   },
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { School, Lock, User as UserIcon, AlertCircle, Loader } from 'lucide-react';
+import { School, Lock, User as UserIcon, AlertCircle, Loader, RefreshCw } from 'lucide-react';
 import { DataService } from '../services/dataService';
 import { User } from '../types';
 
@@ -19,10 +19,8 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setLoading(true);
 
     try {
-        // On tente de récupérer les utilisateurs
         const users = await DataService.getUsers();
         
-        // Vérification classique
         const user = users.find(
           (u) => u.username === username && u.password === password && u.active
         );
@@ -34,9 +32,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
         }
     } catch (err: any) {
         console.error("Login Error:", err);
-        // AFFICHER L'ERREUR EXACTE POUR LE DÉBOGAGE
         const message = err.message || JSON.stringify(err) || 'Erreur inconnue';
-        setError(`Erreur technique : ${message}`);
+        
+        if (message.includes('schema cache')) {
+            setError("Le serveur met à jour sa structure. Veuillez recharger la page (F5) ou relancer le script SQL d'installation.");
+        } else {
+            setError(`Erreur technique : ${message}`);
+        }
     } finally {
         setLoading(false);
     }
@@ -66,6 +68,11 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 </div>
                 <div className="ml-3">
                   <p className="text-sm font-medium text-red-800 break-words">{error}</p>
+                  {error.includes('cache') && (
+                      <button onClick={() => window.location.reload()} className="mt-2 text-xs font-bold text-red-700 flex items-center hover:underline">
+                          <RefreshCw className="w-3 h-3 mr-1" /> Recharger la page
+                      </button>
+                  )}
                 </div>
               </div>
             </div>
