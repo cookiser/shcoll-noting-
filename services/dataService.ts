@@ -34,29 +34,28 @@ export const DataService = {
   // INITIALISATION (Check connectivity)
   init: async (): Promise<'OK' | 'MISSING_TABLES'> => {
     try {
-      // Tentative de lecture simple
-      const { count, error } = await supabase.from('users').select('*', { count: 'exact', head: true });
+      // On vérifie l'existence de la table 'classes' avec un HEAD request (plus léger et robuste)
+      // Cela évite les erreurs potentielles liées à la lecture de données ou aux formats
+      const { error, status } = await supabase.from('classes').select('count', { count: 'exact', head: true });
       
       if (error) {
-        console.error("Erreur DB (Init):", error);
+        // Log détaillé de l'erreur pour le débogage (évite le [object Object])
+        console.error("Erreur DB (Init):", JSON.stringify(error, null, 2));
         
-        // Détection spécifique des erreurs qui nécessitent de relancer le script SQL
-        const msg = error.message?.toLowerCase() || '';
-        if (
-            msg.includes('relation "public.users" does not exist') || // Table manquante
-            msg.includes('permission denied') || // Droits RLS
-            msg.includes('schema cache') // Cache Supabase pas à jour
-        ) {
-            return 'MISSING_TABLES';
-        }
-        
-        // Pour les autres erreurs (réseau...), on tente quand même, sinon l'appli est bloquée
+        // Si c'est une erreur 404 ou permission, on assume que les tables manquent
         return 'MISSING_TABLES';
+      }
+
+      // Si status est 0 ou null (problème réseau grave), on considère ça comme une erreur
+      if (status === 0) {
+          console.error("Erreur DB (Init): Pas de connexion réseau (Status 0)");
+          return 'MISSING_TABLES';
       }
       
       return 'OK';
-    } catch (error) {
-      console.error("Erreur critique lors de l'init:", error);
+    } catch (error: any) {
+      // Gestion des exceptions JS imprévues
+      console.error("Exception critique lors de l'init:", error?.message || error);
       return 'MISSING_TABLES';
     }
   },
@@ -66,8 +65,7 @@ export const DataService = {
     const { data, error } = await supabase.from('users').select('*');
     
     if (error) {
-        console.error("Erreur getUsers:", error);
-        // Si on tombe sur l'erreur de cache ici, on la propage pour l'afficher
+        console.error("Erreur getUsers:", JSON.stringify(error));
         throw error;
     }
     
@@ -93,7 +91,7 @@ export const DataService = {
       assigned_class_ids: user.assignedClassIds || null
     };
     const { error } = await supabase.from('users').upsert(payload);
-    if (error) console.error('Error saving user', error);
+    if (error) console.error('Error saving user', JSON.stringify(error));
   },
 
   deleteUser: async (id: string) => {

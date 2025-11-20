@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Check, AlertTriangle, Database, RefreshCw } from 'lucide-react';
+import { Copy, Check, AlertTriangle, Database, RefreshCw, PlayCircle, AlertCircle } from 'lucide-react';
 
 // ID du projet extrait de la configuration pour vérification visuelle
 const PROJECT_ID = 'zafmtyqrtgiwfydkfmgq';
@@ -96,10 +96,10 @@ const SetupWizard: React.FC = () => {
                     <AlertTriangle className="h-5 w-5 text-yellow-400 flex-shrink-0" />
                     <div className="ml-3">
                         <p className="text-sm text-yellow-700 font-bold">
-                            Erreur de configuration détectée (Tables manquantes ou Cache expiré).
+                            Base de données non détectée ou cache expiré.
                         </p>
                         <p className="text-sm text-yellow-600 mt-1">
-                            L'erreur "Schema Cache" signifie que Supabase n'a pas encore vu vos nouvelles tables. Ce script contient la commande pour forcer la mise à jour.
+                            Suivez les instructions ci-dessous pour configurer votre projet Supabase.
                         </p>
                     </div>
                 </div>
@@ -112,7 +112,7 @@ const SetupWizard: React.FC = () => {
                     <li>Copiez le code SQL ci-dessous.</li>
                     <li>Allez dans Supabase &gt; <strong>SQL Editor</strong> &gt; <strong>New Query</strong>.</li>
                     <li>Collez le code et cliquez sur <strong>RUN</strong>.</li>
-                    <li>Attendez le message "Success", puis rafraîchissez cette page.</li>
+                    <li>Une fois que vous voyez "Success", cliquez sur le bouton vert ci-dessous.</li>
                 </ol>
             </div>
 
@@ -129,6 +129,25 @@ const SetupWizard: React.FC = () => {
                 <pre className="text-xs text-blue-100 font-mono overflow-x-auto h-64 p-2 whitespace-pre-wrap">
                     {SQL_SCRIPT}
                 </pre>
+            </div>
+
+            <div className="pt-4 border-t border-gray-100 space-y-4">
+                <button 
+                    onClick={() => window.location.reload()}
+                    className="w-full flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-green-600 hover:bg-green-700 shadow-sm transition-all transform hover:scale-[1.02]"
+                >
+                    <PlayCircle className="w-5 h-5 mr-2" />
+                    J'ai terminé l'installation, Lancer l'app !
+                </button>
+
+                <div className="text-center">
+                    <button 
+                        onClick={() => window.location.href = '#/login'}
+                        className="text-xs text-gray-400 hover:text-indigo-600 underline"
+                    >
+                        Je suis sûr que ça marche, forcer l'accès au login
+                    </button>
+                </div>
             </div>
         </div>
       </div>
