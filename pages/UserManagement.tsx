@@ -356,26 +356,26 @@ const UserManagement: React.FC = () => {
                           />
                       </div>
 
-                      {/* Role Selection (Limited based on tab) */}
-                      <div>
-                          <label className="block text-sm font-medium text-gray-700">Rôle</label>
-                          <select 
-                            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
-                            value={formData.role}
-                            onChange={e => setFormData({...formData, role: e.target.value as UserRole})}
-                            disabled={activeTab === 'eleves' || activeTab === 'personnel'} // Lock role to tab type for simplicity
-                          >
-                              {activeTab === 'eleves' && <option value={UserRole.ELEVE}>Élève</option>}
-                              {activeTab === 'personnel' && (
-                                <>
-                                  <option value={UserRole.PROFESSEUR}>Professeur</option>
-                                  <option value={UserRole.SURVEILLANT}>Surveillant</option>
-                                  <option value={UserRole.DIRECTION}>Direction</option>
-                                </>
-                              )}
-                              {activeTab === 'classes' && Object.values(UserRole).map(r => <option key={r} value={r}>{r}</option>)}
-                          </select>
-                      </div>
+                      {/* Role Selection (Visible ONLY for Personnel, hidden for Eleve) */}
+                      {activeTab !== 'eleves' && (
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700">Rôle</label>
+                            <select 
+                                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+                                value={formData.role}
+                                onChange={e => setFormData({...formData, role: e.target.value as UserRole})}
+                            >
+                                {activeTab === 'personnel' && (
+                                    <>
+                                    <option value={UserRole.PROFESSEUR}>Professeur</option>
+                                    <option value={UserRole.SURVEILLANT}>Surveillant</option>
+                                    <option value={UserRole.DIRECTION}>Direction</option>
+                                    </>
+                                )}
+                                {activeTab === 'classes' && Object.values(UserRole).map(r => <option key={r} value={r}>{r}</option>)}
+                            </select>
+                        </div>
+                      )}
 
                       {/* Fields only for Eleve (Login) */}
                       {isEleveForm && (
