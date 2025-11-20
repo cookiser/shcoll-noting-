@@ -34,28 +34,21 @@ export const DataService = {
   // INITIALISATION (Check connectivity)
   init: async (): Promise<'OK' | 'MISSING_TABLES'> => {
     try {
-      // On vérifie l'existence de la table 'classes' avec un HEAD request (plus léger et robuste)
-      // Cela évite les erreurs potentielles liées à la lecture de données ou aux formats
-      const { error, status } = await supabase.from('classes').select('count', { count: 'exact', head: true });
+      // On tente de lire une seule ligne de la table 'classes'.
+      // C'est le test le plus fiable pour voir si la table existe et si on a les droits.
+      const { error } = await supabase.from('classes').select('id').limit(1);
       
       if (error) {
-        // Log détaillé de l'erreur pour le débogage (évite le [object Object])
+        // Correction du [object Object] : on convertit l'erreur en texte lisible
         console.error("Erreur DB (Init):", JSON.stringify(error, null, 2));
-        
-        // Si c'est une erreur 404 ou permission, on assume que les tables manquent
         return 'MISSING_TABLES';
-      }
-
-      // Si status est 0 ou null (problème réseau grave), on considère ça comme une erreur
-      if (status === 0) {
-          console.error("Erreur DB (Init): Pas de connexion réseau (Status 0)");
-          return 'MISSING_TABLES';
       }
       
       return 'OK';
     } catch (error: any) {
-      // Gestion des exceptions JS imprévues
-      console.error("Exception critique lors de l'init:", error?.message || error);
+      // Gestion des exceptions JS imprévues avec logging propre
+      const msg = error && typeof error === 'object' ? JSON.stringify(error) : String(error);
+      console.error("Exception critique lors de l'init:", msg);
       return 'MISSING_TABLES';
     }
   },

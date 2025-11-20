@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Copy, Check, AlertTriangle, Database, RefreshCw, PlayCircle, AlertCircle } from 'lucide-react';
+import { Copy, Check, AlertTriangle, Database, PlayCircle } from 'lucide-react';
 
 // ID du projet extrait de la configuration pour vérification visuelle
 const PROJECT_ID = 'zafmtyqrtgiwfydkfmgq';
@@ -65,7 +65,11 @@ insert into public.users (id, full_name, role, active) values
 -- 5. FORCE LE RAFRAÎCHISSEMENT DU CACHE (Corrige l'erreur "Schema Cache")
 NOTIFY pgrst, 'reload config';`;
 
-const SetupWizard: React.FC = () => {
+interface SetupWizardProps {
+  onBypass: () => void;
+}
+
+const SetupWizard: React.FC<SetupWizardProps> = ({ onBypass }) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -142,7 +146,7 @@ const SetupWizard: React.FC = () => {
 
                 <div className="text-center">
                     <button 
-                        onClick={() => window.location.href = '#/login'}
+                        onClick={onBypass}
                         className="text-xs text-gray-400 hover:text-indigo-600 underline"
                     >
                         Je suis sûr que ça marche, forcer l'accès au login

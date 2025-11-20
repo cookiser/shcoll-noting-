@@ -65,7 +65,7 @@ const App: React.FC = () => {
   );
 
   if (needsSetup) {
-      return <SetupWizard />;
+      return <SetupWizard onBypass={() => setNeedsSetup(false)} />;
   }
 
   return (
